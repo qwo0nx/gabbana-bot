@@ -4,10 +4,14 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from datetime import datetime
 import json
 import os
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.utils import get_column_letter
 
 # ========== НАСТРОЙКИ ==========
 TOKEN = "8761306495:AAFWICUB62qgO2h-1va3Y50DHZPGvCGakjw"
 DATA_FILE = "gabbana_data.json"
+EXCEL_FILE = "gabbana_budget.xlsx"
 ALLOWED_IDS = [6578266978, 5029738209, 7950080109]
 
 # Список сотрудников
@@ -96,7 +100,6 @@ def get_next_id():
     """Получает следующий свободный ID"""
     data = load_data()
     next_id = data.get('next_id', 1)
-    # Увеличиваем next_id для следующей операции
     data['next_id'] = next_id + 1
     save_data(data)
     return next_id
@@ -108,6 +111,9 @@ def add_operation(operation):
         data['operations'] = []
     data['operations'].append(operation)
     save_data(data)
+    
+    # Сохраняем также в Excel
+    save_to_excel(operation)
 
 def get_all_operations():
     """Получает все операции"""
@@ -129,6 +135,70 @@ def update_operation(op_id, updated_op):
             break
     save_data(data)
 
+def init_excel():
+    """Создаёт Excel файл если его нет"""
+    if not os.path.exists(EXCEL_FILE):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Gabbana&Home'
+        
+        # Заголовки
+        headers = ['ID', 'Дата', 'Тип', 'Парфюм', 'Объем', 'Кол-во', 'Сотрудник', 'Способ оплаты', 'Банк', 'Сумма (₽)', 'Описание', 'Кто добавил']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="2C3E50", end_color="2C3E50", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center")
+        
+        # Ширина колонок
+        ws.column_dimensions['A'].width = 8
+        ws.column_dimensions['B'].width = 16
+        ws.column_dimensions['C'].width = 8
+        ws.column_dimensions['D'].width = 25
+        ws.column_dimensions['E'].width = 8
+        ws.column_dimensions['F'].width = 8
+        ws.column_dimensions['G'].width = 15
+        ws.column_dimensions['H'].width = 12
+        ws.column_dimensions['I'].width = 12
+        ws.column_dimensions['J'].width = 12
+        ws.column_dimensions['K'].width = 35
+        ws.column_dimensions['L'].width = 15
+        
+        wb.save(EXCEL_FILE)
+
+def save_to_excel(operation):
+    """Сохраняет операцию в Excel"""
+    try:
+        if not os.path.exists(EXCEL_FILE):
+            init_excel()
+        
+        wb = load_workbook(EXCEL_FILE)
+        ws = wb.active
+        
+        # Находим последнюю строку
+        last_row = ws.max_row + 1
+        
+        # Заполняем данные
+        ws.cell(row=last_row, column=1, value=operation['id'])
+        ws.cell(row=last_row, column=2, value=operation['date'])
+        ws.cell(row=last_row, column=3, value=operation['type_display'])
+        ws.cell(row=last_row, column=4, value=operation.get('parfum_name', '-'))
+        ws.cell(row=last_row, column=5, value=operation.get('volume', '-'))
+        ws.cell(row=last_row, column=6, value=operation.get('quantity', 0))
+        ws.cell(row=last_row, column=7, value=operation.get('employee', '-'))
+        ws.cell(row=last_row, column=8, value=operation.get('payment', '-'))
+        ws.cell(row=last_row, column=9, value=operation.get('bank', '-'))
+        ws.cell(row=last_row, column=10, value=operation['amount'])
+        ws.cell(row=last_row, column=11, value=operation.get('description', ''))
+        ws.cell(row=last_row, column=12, value=operation.get('added_by', ''))
+        
+        # Формат для суммы
+        ws.cell(row=last_row, column=10).number_format = '#,##0.00 ₽'
+        
+        wb.save(EXCEL_FILE)
+    except Exception as e:
+        print(f"Ошибка сохранения в Excel: {e}")
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_access(update):
         await update.message.reply_text("❌ У вас нет доступа к этому боту")
@@ -149,7 +219,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• 📋 Таблица парфюмов - все парфюмы\n"
         f"• 👥 Статистика коллег - по сотрудникам\n"
         f"• ✏️ Редактировать/Удалить\n\n"
-        f"✨ *Все данные сохраняются в JSON*"
+        f"✨ *Все данные сохраняются*"
     )
     
     await update.message.reply_text(welcome_text, parse_mode='Markdown', reply_markup=main_keyboard)
@@ -279,7 +349,6 @@ async def handle_income_employee(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
-    # Извлекаем имя сотрудника
     employee = text.replace('👤 ', '')
     
     if employee not in EMPLOYEES:
@@ -387,7 +456,6 @@ async def handle_income_amount(update: Update, context: ContextTypes.DEFAULT_TYP
         
         data = user_data.pop(chat_id)
         
-        # Создаем операцию
         operation = {
             'id': get_next_id(),
             'date': datetime.now().strftime('%d.%m.%Y %H:%M'),
@@ -404,10 +472,8 @@ async def handle_income_amount(update: Update, context: ContextTypes.DEFAULT_TYP
             'added_by': data['added_by']
         }
         
-        # Сохраняем
         add_operation(operation)
         
-        # Форматируем сумму
         formatted_amount = f"{amount:,.0f} ₽".replace(',', ' ')
         if amount != int(amount):
             formatted_amount = f"{amount:,.2f} ₽".replace(',', ' ')
@@ -431,7 +497,6 @@ async def handle_income_amount(update: Update, context: ContextTypes.DEFAULT_TYP
         
         await update.message.reply_text(report, parse_mode='Markdown', reply_markup=main_keyboard)
         
-        # Уведомление всем
         notification = (
             f"🔔 *НОВАЯ ПРОДАЖА #{operation['id']}*\n"
             f"━━━━━━━━━━━━━━\n\n"
@@ -460,10 +525,6 @@ async def handle_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     chat_id = update.effective_chat.id
-    
-    if update.message.text == '🔙 Отмена':
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
-        return
     
     user_data[chat_id] = {
         'type': 'expense',
@@ -558,7 +619,6 @@ async def handle_expense_employee(update: Update, context: ContextTypes.DEFAULT_
     
     data = user_data.pop(chat_id)
     
-    # Создаем операцию
     operation = {
         'id': get_next_id(),
         'date': datetime.now().strftime('%d.%m.%Y %H:%M'),
@@ -570,7 +630,6 @@ async def handle_expense_employee(update: Update, context: ContextTypes.DEFAULT_
         'added_by': data['added_by']
     }
     
-    # Сохраняем
     add_operation(operation)
     
     formatted_amount = f"{data['amount']:,.0f} ₽".replace(',', ' ')
@@ -588,7 +647,6 @@ async def handle_expense_employee(update: Update, context: ContextTypes.DEFAULT_
         reply_markup=main_keyboard
     )
     
-    # Уведомление всем
     notification = (
         f"🔔 *НОВЫЙ РАСХОД #{operation['id']}*\n"
         f"━━━━━━━━━━━━━━\n\n"
@@ -610,7 +668,6 @@ async def show_parfum_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     operations = get_all_operations()
     
-    # Собираем все доходы по парфюмам
     parfums = {}
     for op in operations:
         if op['type'] == 'income':
@@ -631,7 +688,6 @@ async def show_parfum_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📭 Нет данных о парфюмах", reply_markup=main_keyboard)
         return
     
-    # Сортируем по сумме продаж
     sorted_parfums = sorted(parfums.items(), key=lambda x: x[1]['total_amount'], reverse=True)
     
     report = "📋 *ТАБЛИЦА ПАРФЮМОВ*\n"
@@ -647,7 +703,6 @@ async def show_parfum_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"   • Продаж: {len(data['sales'])}\n\n"
         )
     
-    # Статистика по объемам
     ml6_total = sum(data['total_amount'] for key, data in parfums.items() if '6ml' in key)
     ml10_total = sum(data['total_amount'] for key, data in parfums.items() if '10ml' in key)
     
@@ -685,7 +740,6 @@ async def show_employee_stats(update: Update, context: ContextTypes.DEFAULT_TYPE
                 stats[employee]['income'] += op['amount']
                 stats[employee]['income_count'] += 1
                 
-                # Собираем парфюмы
                 key = f"{op['parfum_name']} {op['volume']}"
                 if key not in stats[employee]['parfums']:
                     stats[employee]['parfums'][key] = {
@@ -715,7 +769,6 @@ async def show_employee_stats(update: Update, context: ContextTypes.DEFAULT_TYPE
         
         if data['parfums']:
             report += f"   📦 Продажи:\n"
-            # Топ 3 парфюма
             top_parfums = sorted(data['parfums'].items(), key=lambda x: x[1]['amount'], reverse=True)[:3]
             for parfum, pdata in top_parfums:
                 pamount = f"{pdata['amount']:,.0f} ₽".replace(',', ' ')
@@ -744,11 +797,9 @@ async def show_all_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE
     expense_formatted = f"{expense_total:,.0f} ₽".replace(',', ' ')
     profit_formatted = f"{income_total - expense_total:,.0f} ₽".replace(',', ' ')
     
-    # Статистика по объему
     ml6_total = sum(op['amount'] for op in operations if op['type'] == 'income' and op.get('volume') == '6ml')
     ml10_total = sum(op['amount'] for op in operations if op['type'] == 'income' and op.get('volume') == '10ml')
     
-    # Топ парфюмы
     parfums = {}
     for op in operations:
         if op['type'] == 'income':
@@ -761,7 +812,6 @@ async def show_all_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE
             parfums[key]['amount'] += op['amount']
             parfums[key]['quantity'] += op['quantity']
     
-    # Формируем отчет (исправлено!)
     report = "📊 *ОБЩАЯ СТАТИСТИКА*\n"
     report += "━━━━━━━━━━━━━━━━━━━━\n\n"
     report += f"📈 *Доходы:* `{income_formatted}` ({income_count} шт)\n"
@@ -795,7 +845,6 @@ async def show_operations_for_edit(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text("📭 Нет операций", reply_markup=main_keyboard)
         return
     
-    # Сортируем по дате (новые сверху) и берем последние 15
     operations.sort(key=lambda x: x['id'], reverse=True)
     operations = operations[:15]
     
@@ -909,7 +958,6 @@ async def edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['edit_op_id'] = op_id
         context.user_data['edit_action'] = 'employee'
         
-        # Создаем клавиатуру с сотрудниками
         keyboard = []
         for emp in EMPLOYEES:
             keyboard.append([InlineKeyboardButton(f"👤 {emp}", callback_data=f"edit_set_employee_{op_id}_{emp}")])
@@ -935,7 +983,6 @@ async def edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await query.edit_message_text(f"✅ Сотрудник операции #{op_id} изменен на {new_employee}")
         
-        # Уведомление
         notification = f"✏️ *Операция #{op_id} изменена*\n👤 {update.effective_user.first_name}\n👤 Новый сотрудник: {new_employee}"
         for admin_id in ALLOWED_IDS:
             try:
@@ -1036,7 +1083,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     text = update.message.text
     
-    # Глобальная отмена
     if text == '🔙 Отмена':
         if chat_id in user_data:
             del user_data[chat_id]
@@ -1044,12 +1090,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
-    # Проверяем ожидание ввода при редактировании
     if 'edit_op_id' in context.user_data:
         await handle_edit_input(update, context)
         return
     
-    # Обработка состояний
     if chat_id in user_data:
         state_data = user_data[chat_id]
         
@@ -1081,7 +1125,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif state == EXPENSE_STATES['EMPLOYEE']:
                 await handle_expense_employee(update, context)
     
-    # Основное меню
     elif text == '💰 Доход':
         await handle_income(update, context)
     elif text == '💸 Расход':
@@ -1109,7 +1152,8 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     print("🚀 Бот запускается...")
-    print("✅ Данные будут сохраняться в gabbana_data.json")
+    init_excel()
+    print("✅ Данные будут сохраняться в gabbana_data.json и gabbana_budget.xlsx")
     
     app = Application.builder().token(TOKEN).build()
     
