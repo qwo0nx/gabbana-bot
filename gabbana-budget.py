@@ -82,6 +82,7 @@ def check_access(update):
     return user_id in ALLOWED_IDS
 
 def load_data():
+    """Загружает данные из JSON файла"""
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
@@ -91,10 +92,12 @@ def load_data():
     return {'operations': [], 'next_id': 1}
 
 def save_data(data):
+    """Сохраняет данные в JSON файл"""
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def get_next_id():
+    """Получает следующий свободный ID"""
     data = load_data()
     next_id = data.get('next_id', 1)
     data['next_id'] = next_id + 1
@@ -102,6 +105,7 @@ def get_next_id():
     return next_id
 
 def add_operation(operation):
+    """Добавляет операцию в хранилище"""
     data = load_data()
     if 'operations' not in data:
         data['operations'] = []
@@ -110,15 +114,18 @@ def add_operation(operation):
     save_to_excel(operation)
 
 def get_all_operations():
+    """Получает все операции"""
     data = load_data()
     return data.get('operations', [])
 
 def delete_operation(op_id):
+    """Удаляет операцию по ID"""
     data = load_data()
     data['operations'] = [op for op in data['operations'] if op['id'] != op_id]
     save_data(data)
 
 def update_operation(op_id, updated_op):
+    """Обновляет операцию"""
     data = load_data()
     for i, op in enumerate(data['operations']):
         if op['id'] == op_id:
@@ -127,6 +134,7 @@ def update_operation(op_id, updated_op):
     save_data(data)
 
 def init_excel():
+    """Создаёт Excel файл если его нет"""
     if not os.path.exists(EXCEL_FILE):
         wb = Workbook()
         ws = wb.active
@@ -155,6 +163,7 @@ def init_excel():
         wb.save(EXCEL_FILE)
 
 def save_to_excel(operation):
+    """Сохраняет операцию в Excel"""
     try:
         if not os.path.exists(EXCEL_FILE):
             init_excel()
@@ -184,6 +193,7 @@ def save_to_excel(operation):
         print(f"Ошибка сохранения в Excel: {e}")
 
 def start(update, context):
+    """Обработчик команды /start"""
     if not check_access(update):
         update.message.reply_text("❌ У вас нет доступа к этому боту")
         return
@@ -209,6 +219,7 @@ def start(update, context):
     update.message.reply_text(welcome_text, parse_mode='Markdown', reply_markup=main_keyboard)
 
 def handle_income(update, context):
+    """Начало добавления дохода"""
     if not check_access(update):
         return
     
@@ -235,6 +246,7 @@ def handle_income(update, context):
     )
 
 def handle_income_name(update, context):
+    """Обработка названия парфюма"""
     chat_id = update.effective_chat.id
     text = update.message.text
     
@@ -257,6 +269,7 @@ def handle_income_name(update, context):
     )
 
 def handle_income_volume(update, context):
+    """Обработка выбора объема"""
     chat_id = update.effective_chat.id
     text = update.message.text
     
@@ -287,6 +300,7 @@ def handle_income_volume(update, context):
     )
 
 def handle_income_quantity(update, context):
+    """Обработка ввода количества"""
     chat_id = update.effective_chat.id
     text = update.message.text
     
@@ -314,12 +328,14 @@ def handle_income_quantity(update, context):
         
     except ValueError:
         update.message.reply_text(
-            "❌ Введите корректное число\n\n🔹 *Для отмены нажмите кнопку ниже*",
+            "❌ Введите число (например: 1, 2, 3)\n\n"
+            "🔹 *Для отмены нажмите кнопку ниже*",
             parse_mode='Markdown',
             reply_markup=cancel_keyboard
         )
 
 def handle_income_employee(update, context):
+    """Обработка выбора сотрудника"""
     chat_id = update.effective_chat.id
     text = update.message.text
     
@@ -350,6 +366,7 @@ def handle_income_employee(update, context):
     )
 
 def handle_income_payment(update, context):
+    """Обработка выбора способа оплаты"""
     chat_id = update.effective_chat.id
     text = update.message.text
     
@@ -393,6 +410,7 @@ def handle_income_payment(update, context):
         )
 
 def handle_income_bank(update, context):
+    """Обработка выбора банка"""
     chat_id = update.effective_chat.id
     text = update.message.text
     
@@ -418,6 +436,7 @@ def handle_income_bank(update, context):
     )
 
 def handle_income_amount(update, context):
+    """Обработка ввода суммы и сохранение"""
     chat_id = update.effective_chat.id
     user = update.effective_user
     text = update.message.text
@@ -475,12 +494,15 @@ def handle_income_amount(update, context):
         
     except ValueError:
         update.message.reply_text(
-            "❌ Введите корректную сумму\n\n🔹 *Для отмены нажмите кнопку ниже*",
+            "❌ Введите корректную сумму\n\n"
+            "📝 *Примеры:* 1300, 2 500, 3 000.50\n\n"
+            "🔹 *Для отмены нажмите кнопку ниже*",
             parse_mode='Markdown',
             reply_markup=cancel_keyboard
         )
 
 def handle_expense(update, context):
+    """Начало добавления расхода"""
     if not check_access(update):
         return
     
@@ -503,6 +525,7 @@ def handle_expense(update, context):
     )
 
 def handle_expense_amount(update, context):
+    """Обработка ввода суммы расхода"""
     chat_id = update.effective_chat.id
     text = update.message.text
     
@@ -531,12 +554,14 @@ def handle_expense_amount(update, context):
         )
     except ValueError:
         update.message.reply_text(
-            "❌ Введите корректную сумму\n\n🔹 *Для отмены нажмите кнопку ниже*",
+            "❌ Введите корректную сумму\n\n"
+            "🔹 *Для отмены нажмите кнопку ниже*",
             parse_mode='Markdown',
             reply_markup=cancel_keyboard
         )
 
 def handle_expense_description(update, context):
+    """Обработка ввода описания расхода"""
     chat_id = update.effective_chat.id
     description = update.message.text
     
@@ -557,6 +582,7 @@ def handle_expense_description(update, context):
     )
 
 def handle_expense_employee(update, context):
+    """Обработка выбора сотрудника для расхода и сохранение"""
     chat_id = update.effective_chat.id
     text = update.message.text
     
@@ -605,6 +631,7 @@ def handle_expense_employee(update, context):
     )
 
 def show_parfum_table(update, context):
+    """Показывает таблицу всех парфюмов"""
     if not check_access(update):
         return
     
@@ -655,6 +682,7 @@ def show_parfum_table(update, context):
     update.message.reply_text(report, parse_mode='Markdown', reply_markup=main_keyboard)
 
 def show_employee_stats(update, context):
+    """Показывает статистику по сотрудникам"""
     if not check_access(update):
         return
     
@@ -719,6 +747,7 @@ def show_employee_stats(update, context):
     update.message.reply_text(report, parse_mode='Markdown', reply_markup=main_keyboard)
 
 def show_all_statistics(update, context):
+    """Показывает общую статистику"""
     if not check_access(update):
         return
     
@@ -771,6 +800,7 @@ def show_all_statistics(update, context):
     update.message.reply_text(report, parse_mode='Markdown', reply_markup=main_keyboard)
 
 def show_operations_for_edit(update, context):
+    """Показывает последние операции для редактирования"""
     if not check_access(update):
         return
     
@@ -815,6 +845,7 @@ def show_operations_for_edit(update, context):
     )
 
 def edit_callback(update, context):
+    """Обработка редактирования"""
     query = update.callback_query
     query.answer()
     
@@ -932,6 +963,7 @@ def edit_callback(update, context):
         show_operations_for_edit(update, context)
 
 def handle_edit_input(update, context):
+    """Обработка ввода новых данных при редактировании"""
     if 'edit_op_id' not in context.user_data:
         return
     
@@ -970,6 +1002,7 @@ def handle_edit_input(update, context):
     del context.user_data['edit_action']
 
 def handle_message(update, context):
+    """Основной обработчик сообщений"""
     if not check_access(update):
         update.message.reply_text("❌ Нет доступа")
         return
@@ -977,6 +1010,7 @@ def handle_message(update, context):
     chat_id = update.effective_chat.id
     text = update.message.text
     
+    # Проверяем отмену
     if text == '🔙 Отмена':
         if chat_id in user_data:
             del user_data[chat_id]
@@ -984,10 +1018,12 @@ def handle_message(update, context):
         update.message.reply_text("🔙 Главное меню", reply_markup=main_keyboard)
         return
     
+    # Проверяем редактирование
     if 'edit_op_id' in context.user_data:
         handle_edit_input(update, context)
         return
     
+    # Если есть активное состояние
     if chat_id in user_data:
         state_data = user_data[chat_id]
         
@@ -1008,6 +1044,9 @@ def handle_message(update, context):
                 handle_income_bank(update, context)
             elif state == INCOME_STATES['AMOUNT']:
                 handle_income_amount(update, context)
+            else:
+                del user_data[chat_id]
+                update.message.reply_text("⚠️ Что-то пошло не так. Начните заново.", reply_markup=main_keyboard)
         
         elif state_data.get('type') == 'expense':
             state = state_data.get('state')
@@ -1018,8 +1057,14 @@ def handle_message(update, context):
                 handle_expense_description(update, context)
             elif state == EXPENSE_STATES['EMPLOYEE']:
                 handle_expense_employee(update, context)
+            else:
+                del user_data[chat_id]
+                update.message.reply_text("⚠️ Что-то пошло не так. Начните заново.", reply_markup=main_keyboard)
+        
+        return
     
-    elif text == '💰 Доход':
+    # Обработка команд из меню
+    if text == '💰 Доход':
         handle_income(update, context)
     elif text == '💸 Расход':
         handle_expense(update, context)
@@ -1032,9 +1077,11 @@ def handle_message(update, context):
     elif text == '✏️ Редактировать/Удалить':
         show_operations_for_edit(update, context)
     else:
-        update.message.reply_text("Используйте кнопки 👇", reply_markup=main_keyboard)
+        # Игнорируем случайные сообщения
+        pass
 
 def main():
+    """Запуск бота"""
     print("✅ Бот запускается...")
     init_excel()
     print("✅ Данные будут сохраняться в gabbana_data.json и gabbana_budget.xlsx")
