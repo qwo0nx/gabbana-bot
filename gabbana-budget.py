@@ -4,10 +4,10 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 from datetime import datetime
 import json
 import os
-import sys
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.utils import get_column_letter
+
 # ========== НАСТРОЙКИ ==========
 TOKEN = "8761306495:AAFWICUB62qgO2h-1va3Y50DHZPGvCGakjw"
 DATA_FILE = "gabbana_data.json"
@@ -58,13 +58,13 @@ employee_keyboard = ReplyKeyboardMarkup([
 
 # Состояния для дохода
 INCOME_STATES = {
-    'NAME': 1,        # Ввод названия парфюма
-    'VOLUME': 2,      # Ввод объема
-    'QUANTITY': 3,    # Ввод количества
-    'EMPLOYEE': 4,    # Выбор сотрудника
-    'PAYMENT': 5,     # Выбор способа оплаты
-    'BANK': 6,        # Выбор банка (если перевод)
-    'AMOUNT': 7       # Ввод суммы
+    'NAME': 1,
+    'VOLUME': 2,
+    'QUANTITY': 3,
+    'EMPLOYEE': 4,
+    'PAYMENT': 5,
+    'BANK': 6,
+    'AMOUNT': 7
 }
 
 # Состояния для расхода
@@ -75,14 +75,13 @@ EXPENSE_STATES = {
 }
 
 # Состояния пользователей
-user_data = {}  # Для временного хранения данных
+user_data = {}
 
 def check_access(update):
     user_id = update.effective_user.id
     return user_id in ALLOWED_IDS
 
 def load_data():
-    """Загружает данные из JSON файла"""
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
@@ -92,12 +91,10 @@ def load_data():
     return {'operations': [], 'next_id': 1}
 
 def save_data(data):
-    """Сохраняет данные в JSON файл"""
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def get_next_id():
-    """Получает следующий свободный ID"""
     data = load_data()
     next_id = data.get('next_id', 1)
     data['next_id'] = next_id + 1
@@ -105,29 +102,23 @@ def get_next_id():
     return next_id
 
 def add_operation(operation):
-    """Добавляет операцию в хранилище"""
     data = load_data()
     if 'operations' not in data:
         data['operations'] = []
     data['operations'].append(operation)
     save_data(data)
-    
-    # Сохраняем также в Excel
     save_to_excel(operation)
 
 def get_all_operations():
-    """Получает все операции"""
     data = load_data()
     return data.get('operations', [])
 
 def delete_operation(op_id):
-    """Удаляет операцию по ID"""
     data = load_data()
     data['operations'] = [op for op in data['operations'] if op['id'] != op_id]
     save_data(data)
 
 def update_operation(op_id, updated_op):
-    """Обновляет операцию"""
     data = load_data()
     for i, op in enumerate(data['operations']):
         if op['id'] == op_id:
@@ -136,13 +127,11 @@ def update_operation(op_id, updated_op):
     save_data(data)
 
 def init_excel():
-    """Создаёт Excel файл если его нет"""
     if not os.path.exists(EXCEL_FILE):
         wb = Workbook()
         ws = wb.active
         ws.title = 'Gabbana&Home'
         
-        # Заголовки
         headers = ['ID', 'Дата', 'Тип', 'Парфюм', 'Объем', 'Кол-во', 'Сотрудник', 'Способ оплаты', 'Банк', 'Сумма (₽)', 'Описание', 'Кто добавил']
         for col, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col, value=header)
@@ -150,7 +139,6 @@ def init_excel():
             cell.fill = PatternFill(start_color="2C3E50", end_color="2C3E50", fill_type="solid")
             cell.alignment = Alignment(horizontal="center")
         
-        # Ширина колонок
         ws.column_dimensions['A'].width = 8
         ws.column_dimensions['B'].width = 16
         ws.column_dimensions['C'].width = 8
@@ -167,7 +155,6 @@ def init_excel():
         wb.save(EXCEL_FILE)
 
 def save_to_excel(operation):
-    """Сохраняет операцию в Excel"""
     try:
         if not os.path.exists(EXCEL_FILE):
             init_excel()
@@ -175,10 +162,8 @@ def save_to_excel(operation):
         wb = load_workbook(EXCEL_FILE)
         ws = wb.active
         
-        # Находим последнюю строку
         last_row = ws.max_row + 1
         
-        # Заполняем данные
         ws.cell(row=last_row, column=1, value=operation['id'])
         ws.cell(row=last_row, column=2, value=operation['date'])
         ws.cell(row=last_row, column=3, value=operation['type_display'])
@@ -192,16 +177,15 @@ def save_to_excel(operation):
         ws.cell(row=last_row, column=11, value=operation.get('description', ''))
         ws.cell(row=last_row, column=12, value=operation.get('added_by', ''))
         
-        # Формат для суммы
         ws.cell(row=last_row, column=10).number_format = '#,##0.00 ₽'
         
         wb.save(EXCEL_FILE)
     except Exception as e:
         print(f"Ошибка сохранения в Excel: {e}")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def start(update, context):
     if not check_access(update):
-        await update.message.reply_text("❌ У вас нет доступа к этому боту")
+        update.message.reply_text("❌ У вас нет доступа к этому боту")
         return
     
     user = update.effective_user
@@ -222,10 +206,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✨ *Все данные сохраняются*"
     )
     
-    await update.message.reply_text(welcome_text, parse_mode='Markdown', reply_markup=main_keyboard)
+    update.message.reply_text(welcome_text, parse_mode='Markdown', reply_markup=main_keyboard)
 
-async def handle_income(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Начало добавления дохода"""
+def handle_income(update, context):
     if not check_access(update):
         return
     
@@ -237,7 +220,7 @@ async def handle_income(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'added_by': update.effective_user.first_name
     }
     
-    await update.message.reply_text(
+    update.message.reply_text(
         "💵 *ДОХОД (Продажа парфюма)*\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         "📝 *Шаг 1 из 7*\n\n"
@@ -251,20 +234,19 @@ async def handle_income(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=cancel_keyboard
     )
 
-async def handle_income_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка названия парфюма"""
+def handle_income_name(update, context):
     chat_id = update.effective_chat.id
     text = update.message.text
     
     if text == '🔙 Отмена':
         del user_data[chat_id]
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
     user_data[chat_id]['parfum_name'] = text
     user_data[chat_id]['state'] = INCOME_STATES['VOLUME']
     
-    await update.message.reply_text(
+    update.message.reply_text(
         f"✅ Название: *{text}*\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"📝 *Шаг 2 из 7*\n\n"
@@ -274,18 +256,17 @@ async def handle_income_name(update: Update, context: ContextTypes.DEFAULT_TYPE)
         reply_markup=volume_keyboard
     )
 
-async def handle_income_volume(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора объема"""
+def handle_income_volume(update, context):
     chat_id = update.effective_chat.id
     text = update.message.text
     
     if text == '🔙 Отмена':
         del user_data[chat_id]
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
     if text not in ['6ml', '10ml']:
-        await update.message.reply_text(
+        update.message.reply_text(
             "❌ Пожалуйста, выберите объем из кнопок:",
             reply_markup=volume_keyboard
         )
@@ -294,7 +275,7 @@ async def handle_income_volume(update: Update, context: ContextTypes.DEFAULT_TYP
     user_data[chat_id]['volume'] = text
     user_data[chat_id]['state'] = INCOME_STATES['QUANTITY']
     
-    await update.message.reply_text(
+    update.message.reply_text(
         f"✅ Объем: *{text}*\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"📝 *Шаг 3 из 7*\n\n"
@@ -305,14 +286,13 @@ async def handle_income_volume(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup=cancel_keyboard
     )
 
-async def handle_income_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка ввода количества"""
+def handle_income_quantity(update, context):
     chat_id = update.effective_chat.id
     text = update.message.text
     
     if text == '🔙 Отмена':
         del user_data[chat_id]
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
     try:
@@ -323,7 +303,7 @@ async def handle_income_quantity(update: Update, context: ContextTypes.DEFAULT_T
         user_data[chat_id]['quantity'] = quantity
         user_data[chat_id]['state'] = INCOME_STATES['EMPLOYEE']
         
-        await update.message.reply_text(
+        update.message.reply_text(
             f"✅ Количество: *{quantity} шт*\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"📝 *Шаг 4 из 7*\n\n"
@@ -333,26 +313,25 @@ async def handle_income_quantity(update: Update, context: ContextTypes.DEFAULT_T
         )
         
     except ValueError:
-        await update.message.reply_text(
+        update.message.reply_text(
             "❌ Введите корректное число\n\n🔹 *Для отмены нажмите кнопку ниже*",
             parse_mode='Markdown',
             reply_markup=cancel_keyboard
         )
 
-async def handle_income_employee(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора сотрудника"""
+def handle_income_employee(update, context):
     chat_id = update.effective_chat.id
     text = update.message.text
     
     if text == '🔙 Отмена':
         del user_data[chat_id]
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
     employee = text.replace('👤 ', '')
     
     if employee not in EMPLOYEES:
-        await update.message.reply_text(
+        update.message.reply_text(
             "❌ Пожалуйста, выберите сотрудника из кнопок:",
             reply_markup=employee_keyboard
         )
@@ -361,7 +340,7 @@ async def handle_income_employee(update: Update, context: ContextTypes.DEFAULT_T
     user_data[chat_id]['employee'] = employee
     user_data[chat_id]['state'] = INCOME_STATES['PAYMENT']
     
-    await update.message.reply_text(
+    update.message.reply_text(
         f"✅ Сотрудник: *{employee}*\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"📝 *Шаг 5 из 7*\n\n"
@@ -370,21 +349,20 @@ async def handle_income_employee(update: Update, context: ContextTypes.DEFAULT_T
         reply_markup=payment_keyboard
     )
 
-async def handle_income_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора способа оплаты"""
+def handle_income_payment(update, context):
     chat_id = update.effective_chat.id
     text = update.message.text
     
     if text == '🔙 Отмена':
         del user_data[chat_id]
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
     if 'Перевод' in text:
         user_data[chat_id]['payment'] = 'Перевод'
         user_data[chat_id]['state'] = INCOME_STATES['BANK']
         
-        await update.message.reply_text(
+        update.message.reply_text(
             f"✅ Способ оплаты: *{text}*\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"📝 *Шаг 6 из 7*\n\n"
@@ -398,7 +376,7 @@ async def handle_income_payment(update: Update, context: ContextTypes.DEFAULT_TY
         user_data[chat_id]['bank'] = '-'
         user_data[chat_id]['state'] = INCOME_STATES['AMOUNT']
         
-        await update.message.reply_text(
+        update.message.reply_text(
             f"✅ Способ оплаты: *{text}*\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"📝 *Шаг 7 из 7*\n\n"
@@ -409,19 +387,18 @@ async def handle_income_payment(update: Update, context: ContextTypes.DEFAULT_TY
             reply_markup=cancel_keyboard
         )
     else:
-        await update.message.reply_text(
+        update.message.reply_text(
             "❌ Пожалуйста, выберите способ оплаты из кнопок:",
             reply_markup=payment_keyboard
         )
 
-async def handle_income_bank(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора банка"""
+def handle_income_bank(update, context):
     chat_id = update.effective_chat.id
     text = update.message.text
     
     if text == '🔙 Отмена':
         del user_data[chat_id]
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
     bank = text.replace('🏦 ', '') if '🏦' in text else text
@@ -429,7 +406,7 @@ async def handle_income_bank(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_data[chat_id]['bank'] = bank
     user_data[chat_id]['state'] = INCOME_STATES['AMOUNT']
     
-    await update.message.reply_text(
+    update.message.reply_text(
         f"✅ Банк: *{bank}*\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"📝 *Шаг 7 из 7*\n\n"
@@ -440,15 +417,14 @@ async def handle_income_bank(update: Update, context: ContextTypes.DEFAULT_TYPE)
         reply_markup=cancel_keyboard
     )
 
-async def handle_income_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка ввода суммы и сохранение"""
+def handle_income_amount(update, context):
     chat_id = update.effective_chat.id
     user = update.effective_user
     text = update.message.text
     
     if text == '🔙 Отмена':
         del user_data[chat_id]
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
     try:
@@ -495,32 +471,16 @@ async def handle_income_amount(update: Update, context: ContextTypes.DEFAULT_TYP
         report += f"📝 *Запись добавил:* {data['added_by']}\n\n"
         report += f"✨ *Спасибо за продажу!*"
         
-        await update.message.reply_text(report, parse_mode='Markdown', reply_markup=main_keyboard)
-        
-        notification = (
-            f"🔔 *НОВАЯ ПРОДАЖА #{operation['id']}*\n"
-            f"━━━━━━━━━━━━━━\n\n"
-            f"👤 *Сотрудник:* {data['employee']}\n"
-            f"📦 {data['parfum_name']} {data['volume']} x{data['quantity']}\n"
-            f"💰 {formatted_amount}\n"
-            f"💳 {data['payment']}"
-        )
-        
-        for admin_id in ALLOWED_IDS:
-            try:
-                await context.bot.send_message(chat_id=admin_id, text=notification, parse_mode='Markdown')
-            except:
-                pass
+        update.message.reply_text(report, parse_mode='Markdown', reply_markup=main_keyboard)
         
     except ValueError:
-        await update.message.reply_text(
+        update.message.reply_text(
             "❌ Введите корректную сумму\n\n🔹 *Для отмены нажмите кнопку ниже*",
             parse_mode='Markdown',
             reply_markup=cancel_keyboard
         )
 
-async def handle_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Начало добавления расхода"""
+def handle_expense(update, context):
     if not check_access(update):
         return
     
@@ -532,7 +492,7 @@ async def handle_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'added_by': update.effective_user.first_name
     }
     
-    await update.message.reply_text(
+    update.message.reply_text(
         "💳 *РАСХОД*\n"
         "━━━━━━━━━━━━━━\n\n"
         "✏️ *Введите сумму расхода:*\n\n"
@@ -542,14 +502,13 @@ async def handle_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=cancel_keyboard
     )
 
-async def handle_expense_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка ввода суммы расхода"""
+def handle_expense_amount(update, context):
     chat_id = update.effective_chat.id
     text = update.message.text
     
     if text == '🔙 Отмена':
         del user_data[chat_id]
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
     try:
@@ -561,7 +520,7 @@ async def handle_expense_amount(update: Update, context: ContextTypes.DEFAULT_TY
         if amount != int(amount):
             formatted_amount = f"{amount:,.2f} ₽".replace(',', ' ')
         
-        await update.message.reply_text(
+        update.message.reply_text(
             f"✅ *Сумма:* {formatted_amount}\n"
             f"━━━━━━━━━━━━━━\n\n"
             f"📝 *Введите описание расхода:*\n\n"
@@ -571,26 +530,25 @@ async def handle_expense_amount(update: Update, context: ContextTypes.DEFAULT_TY
             reply_markup=cancel_keyboard
         )
     except ValueError:
-        await update.message.reply_text(
+        update.message.reply_text(
             "❌ Введите корректную сумму\n\n🔹 *Для отмены нажмите кнопку ниже*",
             parse_mode='Markdown',
             reply_markup=cancel_keyboard
         )
 
-async def handle_expense_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка ввода описания расхода"""
+def handle_expense_description(update, context):
     chat_id = update.effective_chat.id
     description = update.message.text
     
     if description == '🔙 Отмена':
         del user_data[chat_id]
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
     user_data[chat_id]['description'] = description
     user_data[chat_id]['state'] = EXPENSE_STATES['EMPLOYEE']
     
-    await update.message.reply_text(
+    update.message.reply_text(
         f"✅ Описание: *{description}*\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"👤 *Выберите сотрудника:*",
@@ -598,20 +556,19 @@ async def handle_expense_description(update: Update, context: ContextTypes.DEFAU
         reply_markup=employee_keyboard
     )
 
-async def handle_expense_employee(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора сотрудника для расхода и сохранение"""
+def handle_expense_employee(update, context):
     chat_id = update.effective_chat.id
     text = update.message.text
     
     if text == '🔙 Отмена':
         del user_data[chat_id]
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
     employee = text.replace('👤 ', '')
     
     if employee not in EMPLOYEES:
-        await update.message.reply_text(
+        update.message.reply_text(
             "❌ Пожалуйста, выберите сотрудника из кнопок:",
             reply_markup=employee_keyboard
         )
@@ -636,7 +593,7 @@ async def handle_expense_employee(update: Update, context: ContextTypes.DEFAULT_
     if data['amount'] != int(data['amount']):
         formatted_amount = f"{data['amount']:,.2f} ₽".replace(',', ' ')
     
-    await update.message.reply_text(
+    update.message.reply_text(
         f"✅ *РАСХОД #{operation['id']} ЗАПИСАН!*\n"
         f"━━━━━━━━━━━━━━\n\n"
         f"💰 *Сумма:* {formatted_amount}\n"
@@ -646,23 +603,8 @@ async def handle_expense_employee(update: Update, context: ContextTypes.DEFAULT_
         parse_mode='Markdown',
         reply_markup=main_keyboard
     )
-    
-    notification = (
-        f"🔔 *НОВЫЙ РАСХОД #{operation['id']}*\n"
-        f"━━━━━━━━━━━━━━\n\n"
-        f"👤 *Сотрудник:* {employee}\n"
-        f"💰 {formatted_amount}\n"
-        f"📋 {data['description']}"
-    )
-    
-    for admin_id in ALLOWED_IDS:
-        try:
-            await context.bot.send_message(chat_id=admin_id, text=notification, parse_mode='Markdown')
-        except:
-            pass
 
-async def show_parfum_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показывает таблицу всех парфюмов"""
+def show_parfum_table(update, context):
     if not check_access(update):
         return
     
@@ -685,7 +627,7 @@ async def show_parfum_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parfums[key]['sales'].append(op)
     
     if not parfums:
-        await update.message.reply_text("📭 Нет данных о парфюмах", reply_markup=main_keyboard)
+        update.message.reply_text("📭 Нет данных о парфюмах", reply_markup=main_keyboard)
         return
     
     sorted_parfums = sorted(parfums.items(), key=lambda x: x[1]['total_amount'], reverse=True)
@@ -710,17 +652,16 @@ async def show_parfum_table(update: Update, context: ContextTypes.DEFAULT_TYPE):
     report += f"📊 *6ml:* {ml6_total:,.0f} ₽\n".replace(',', ' ')
     report += f"📊 *10ml:* {ml10_total:,.0f} ₽\n".replace(',', ' ')
     
-    await update.message.reply_text(report, parse_mode='Markdown', reply_markup=main_keyboard)
+    update.message.reply_text(report, parse_mode='Markdown', reply_markup=main_keyboard)
 
-async def show_employee_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показывает статистику по сотрудникам"""
+def show_employee_stats(update, context):
     if not check_access(update):
         return
     
     operations = get_all_operations()
     
     if not operations:
-        await update.message.reply_text("📭 Нет данных", reply_markup=main_keyboard)
+        update.message.reply_text("📭 Нет данных", reply_markup=main_keyboard)
         return
     
     stats = {}
@@ -775,17 +716,16 @@ async def show_employee_stats(update: Update, context: ContextTypes.DEFAULT_TYPE
                 report += f"      • {parfum}: {pdata['quantity']} шт ({pamount})\n"
         report += "\n"
     
-    await update.message.reply_text(report, parse_mode='Markdown', reply_markup=main_keyboard)
+    update.message.reply_text(report, parse_mode='Markdown', reply_markup=main_keyboard)
 
-async def show_all_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показывает общую статистику"""
+def show_all_statistics(update, context):
     if not check_access(update):
         return
     
     operations = get_all_operations()
     
     if not operations:
-        await update.message.reply_text("📭 Нет данных", reply_markup=main_keyboard)
+        update.message.reply_text("📭 Нет данных", reply_markup=main_keyboard)
         return
     
     income_total = sum(op['amount'] for op in operations if op['type'] == 'income')
@@ -828,21 +768,20 @@ async def show_all_statistics(update: Update, context: ContextTypes.DEFAULT_TYPE
             pamount = f"{data['amount']:,.0f} ₽".replace(',', ' ')
             report += f"   • {parfum}: {data['quantity']} шт ({pamount})\n"
     
-    await update.message.reply_text(report, parse_mode='Markdown', reply_markup=main_keyboard)
+    update.message.reply_text(report, parse_mode='Markdown', reply_markup=main_keyboard)
 
-async def show_operations_for_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показывает последние операции для редактирования"""
+def show_operations_for_edit(update, context):
     if not check_access(update):
         return
     
     if update.message.text == '🔙 Отмена':
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
         return
     
     operations = get_all_operations()
     
     if not operations:
-        await update.message.reply_text("📭 Нет операций", reply_markup=main_keyboard)
+        update.message.reply_text("📭 Нет операций", reply_markup=main_keyboard)
         return
     
     operations.sort(key=lambda x: x['id'], reverse=True)
@@ -867,7 +806,7 @@ async def show_operations_for_edit(update: Update, context: ContextTypes.DEFAULT
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await update.message.reply_text(
+    update.message.reply_text(
         "✏️ *ВЫБЕРИТЕ ОПЕРАЦИЮ:*\n"
         "━━━━━━━━━━━━━━━━━━━━\n\n"
         "🔹 *Последние 15 операций:*",
@@ -875,20 +814,18 @@ async def show_operations_for_edit(update: Update, context: ContextTypes.DEFAULT
         reply_markup=reply_markup
     )
 
-async def edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка редактирования"""
+def edit_callback(update, context):
     query = update.callback_query
-    await query.answer()
+    query.answer()
     
     if not check_access(update):
-        await query.edit_message_text("❌ Нет доступа")
+        query.edit_message_text("❌ Нет доступа")
         return
     
     data = query.data
     
     if data == "edit_cancel":
-        await query.edit_message_text("🔙 Отменено")
-        await query.message.reply_text("Главное меню:", reply_markup=main_keyboard)
+        query.edit_message_text("🔙 Отменено")
         return
     
     if data.startswith("edit_op_"):
@@ -898,7 +835,7 @@ async def edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         op = next((o for o in operations if o['id'] == op_id), None)
         
         if not op:
-            await query.edit_message_text("❌ Операция не найдена")
+            query.edit_message_text("❌ Операция не найдена")
             return
         
         amount = op['amount']
@@ -933,30 +870,25 @@ async def edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         keyboard = [
             [InlineKeyboardButton("💰 Изменить сумму", callback_data=f"edit_sum_{op_id}")],
-            [InlineKeyboardButton("❌ Удалить операцию", callback_data=f"edit_del_{op_id}")],
-            [InlineKeyboardButton("🔙 Назад к списку", callback_data="edit_back_to_list")]
+            [InlineKeyboardButton("❌ Удалить операцию", callback_data=f"edit_del_{op_id}")]
         ]
         
         if op['type'] == 'income':
             keyboard.insert(1, [InlineKeyboardButton("👤 Изменить сотрудника", callback_data=f"edit_employee_{op_id}")])
         
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="edit_back")])
+        
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(op_text, parse_mode='Markdown', reply_markup=reply_markup)
+        query.edit_message_text(op_text, parse_mode='Markdown', reply_markup=reply_markup)
     
     elif data.startswith("edit_sum_"):
         op_id = int(data.split('_')[2])
         context.user_data['edit_op_id'] = op_id
         context.user_data['edit_action'] = 'sum'
-        await query.edit_message_text(
-            f"✏️ Введите новую сумму для операции #{op_id}:\n\n"
-            f"📝 Пример: 15000 или 15 000\n\n"
-            f"🔹 *Для отмены нажмите /cancel*"
-        )
+        query.edit_message_text(f"✏️ Введите новую сумму для операции #{op_id}:")
     
     elif data.startswith("edit_employee_"):
         op_id = int(data.split('_')[2])
-        context.user_data['edit_op_id'] = op_id
-        context.user_data['edit_action'] = 'employee'
         
         keyboard = []
         for emp in EMPLOYEES:
@@ -964,10 +896,7 @@ async def edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard.append([InlineKeyboardButton("🔙 Отмена", callback_data=f"edit_op_{op_id}")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(
-            f"✏️ Выберите нового сотрудника для операции #{op_id}:",
-            reply_markup=reply_markup
-        )
+        query.edit_message_text(f"✏️ Выберите нового сотрудника:", reply_markup=reply_markup)
     
     elif data.startswith("edit_set_employee_"):
         parts = data.split('_')
@@ -981,60 +910,35 @@ async def edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 update_operation(op_id, op)
                 break
         
-        await query.edit_message_text(f"✅ Сотрудник операции #{op_id} изменен на {new_employee}")
-        
-        notification = f"✏️ *Операция #{op_id} изменена*\n👤 {update.effective_user.first_name}\n👤 Новый сотрудник: {new_employee}"
-        for admin_id in ALLOWED_IDS:
-            try:
-                await context.bot.send_message(chat_id=admin_id, text=notification, parse_mode='Markdown')
-            except:
-                pass
-        
-        await query.message.reply_text("Главное меню:", reply_markup=main_keyboard)
+        query.edit_message_text(f"✅ Сотрудник изменен на {new_employee}")
     
     elif data.startswith("edit_del_"):
         op_id = int(data.split('_')[2])
         
         keyboard = [
-            [InlineKeyboardButton("✅ Да, удалить", callback_data=f"edit_confirm_del_{op_id}")],
-            [InlineKeyboardButton("❌ Нет, отмена", callback_data=f"edit_op_{op_id}")]
+            [InlineKeyboardButton("✅ Да", callback_data=f"edit_confirm_del_{op_id}")],
+            [InlineKeyboardButton("❌ Нет", callback_data=f"edit_op_{op_id}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await query.edit_message_text(
-            f"⚠️ *Вы уверены, что хотите удалить операцию #{op_id}?*",
-            parse_mode='Markdown',
-            reply_markup=reply_markup
-        )
+        query.edit_message_text(f"⚠️ Удалить операцию #{op_id}?", reply_markup=reply_markup)
     
     elif data.startswith("edit_confirm_del_"):
         op_id = int(data.split('_')[3])
-        
         delete_operation(op_id)
-        
-        await query.edit_message_text(f"✅ Операция #{op_id} удалена")
-        
-        notification = f"🗑 *Операция #{op_id} удалена*\n👤 {update.effective_user.first_name}"
-        for admin_id in ALLOWED_IDS:
-            try:
-                await context.bot.send_message(chat_id=admin_id, text=notification, parse_mode='Markdown')
-            except:
-                pass
-        
-        await query.message.reply_text("Главное меню:", reply_markup=main_keyboard)
+        query.edit_message_text(f"✅ Операция #{op_id} удалена")
     
-    elif data == "edit_back_to_list":
-        await show_operations_for_edit(update, context)
+    elif data == "edit_back":
+        show_operations_for_edit(update, context)
 
-async def handle_edit_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка ввода новых данных при редактировании"""
+def handle_edit_input(update, context):
     if 'edit_op_id' not in context.user_data:
         return
     
     if update.message.text == '/cancel':
         del context.user_data['edit_op_id']
         del context.user_data['edit_action']
-        await update.message.reply_text("🔙 Редактирование отменено", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Отменено", reply_markup=main_keyboard)
         return
     
     op_id = context.user_data['edit_op_id']
@@ -1056,28 +960,18 @@ async def handle_edit_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if new_sum != int(new_sum):
                 formatted_sum = f"{new_sum:,.2f} ₽".replace(',', ' ')
             
-            await update.message.reply_text(f"✅ Сумма операции #{op_id} изменена на {formatted_sum}", reply_markup=main_keyboard)
-            
-            notification = f"✏️ *Операция #{op_id} изменена*\n👤 {update.effective_user.first_name}\n💰 Новая сумма: {formatted_sum}"
-            for admin_id in ALLOWED_IDS:
-                try:
-                    await context.bot.send_message(chat_id=admin_id, text=notification, parse_mode='Markdown')
-                except:
-                    pass
+            update.message.reply_text(f"✅ Сумма изменена на {formatted_sum}", reply_markup=main_keyboard)
             
         except ValueError:
-            await update.message.reply_text(
-                "❌ Введите корректную сумму\n\n🔹 Для отмены нажмите /cancel"
-            )
+            update.message.reply_text("❌ Введите число")
             return
     
     del context.user_data['edit_op_id']
     del context.user_data['edit_action']
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Основной обработчик"""
+def handle_message(update, context):
     if not check_access(update):
-        await update.message.reply_text("❌ У вас нет доступа к этому боту")
+        update.message.reply_text("❌ Нет доступа")
         return
     
     chat_id = update.effective_chat.id
@@ -1087,11 +981,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if chat_id in user_data:
             del user_data[chat_id]
         context.user_data.clear()
-        await update.message.reply_text("🔙 Возврат в главное меню", reply_markup=main_keyboard)
+        update.message.reply_text("🔙 Главное меню", reply_markup=main_keyboard)
         return
     
     if 'edit_op_id' in context.user_data:
-        await handle_edit_input(update, context)
+        handle_edit_input(update, context)
         return
     
     if chat_id in user_data:
@@ -1101,72 +995,58 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             state = state_data.get('state')
             
             if state == INCOME_STATES['NAME']:
-                await handle_income_name(update, context)
+                handle_income_name(update, context)
             elif state == INCOME_STATES['VOLUME']:
-                await handle_income_volume(update, context)
+                handle_income_volume(update, context)
             elif state == INCOME_STATES['QUANTITY']:
-                await handle_income_quantity(update, context)
+                handle_income_quantity(update, context)
             elif state == INCOME_STATES['EMPLOYEE']:
-                await handle_income_employee(update, context)
+                handle_income_employee(update, context)
             elif state == INCOME_STATES['PAYMENT']:
-                await handle_income_payment(update, context)
+                handle_income_payment(update, context)
             elif state == INCOME_STATES['BANK']:
-                await handle_income_bank(update, context)
+                handle_income_bank(update, context)
             elif state == INCOME_STATES['AMOUNT']:
-                await handle_income_amount(update, context)
+                handle_income_amount(update, context)
         
         elif state_data.get('type') == 'expense':
             state = state_data.get('state')
             
             if state == EXPENSE_STATES['AMOUNT']:
-                await handle_expense_amount(update, context)
+                handle_expense_amount(update, context)
             elif state == EXPENSE_STATES['DESCRIPTION']:
-                await handle_expense_description(update, context)
+                handle_expense_description(update, context)
             elif state == EXPENSE_STATES['EMPLOYEE']:
-                await handle_expense_employee(update, context)
+                handle_expense_employee(update, context)
     
     elif text == '💰 Доход':
-        await handle_income(update, context)
+        handle_income(update, context)
     elif text == '💸 Расход':
-        await handle_expense(update, context)
+        handle_expense(update, context)
     elif text == '📊 Статистика':
-        await show_all_statistics(update, context)
+        show_all_statistics(update, context)
     elif text == '📋 Таблица парфюмов':
-        await show_parfum_table(update, context)
+        show_parfum_table(update, context)
     elif text == '👥 Статистика коллег':
-        await show_employee_stats(update, context)
+        show_employee_stats(update, context)
     elif text == '✏️ Редактировать/Удалить':
-        await show_operations_for_edit(update, context)
+        show_operations_for_edit(update, context)
     else:
-        await update.message.reply_text("Используйте кнопки 👇", reply_markup=main_keyboard)
-
-async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка команды /cancel"""
-    chat_id = update.effective_chat.id
-    
-    if chat_id in user_data:
-        del user_data[chat_id]
-    context.user_data.clear()
-    
-    await update.message.reply_text("🔙 Действие отменено", reply_markup=main_keyboard)
+        update.message.reply_text("Используйте кнопки 👇", reply_markup=main_keyboard)
 
 def main():
     print("✅ Бот запускается...")
     init_excel()
     print("✅ Данные будут сохраняться в gabbana_data.json и gabbana_budget.xlsx")
     
-    # Создаем приложение
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
     
-    # Добавляем обработчики
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("cancel", cancel_command))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
     dp.add_handler(CallbackQueryHandler(edit_callback, pattern="^edit_"))
+    dp.add_handler(MessageHandler(Filters.text, handle_message))
     
     print("✅ Бот готов к работе!")
-    print("🚀 Запускаем polling...")
     
     updater.start_polling()
     updater.idle()
@@ -1174,36 +1054,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print(f"\n❌ Ошибка: {e}")
-        import time
-        time.sleep(10)
-
-if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n⚠️ Бот остановлен")
-    except Exception as e:
-        print(f"\n❌ Ошибка: {e}")
-        import time
-        time.sleep(5)
-
-if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n⚠️ Бот остановлен")
-    except Exception as e:
-        print(f"\n❌ Ошибка: {e}")
-        # Добавим паузу, чтобы увидеть ошибку
-        import time
-        time.sleep(5)
-
-if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n⚠️ Бот остановлен")
     except Exception as e:
         print(f"\n❌ Ошибка: {e}")
