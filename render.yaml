@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: gabbana-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python gabbana-budget.py
+    plan: free
