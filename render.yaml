@@ -2,13 +2,7 @@ services:
   - type: web
     name: gabbana-bot
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
     startCommand: python gabbana-budget.py
     plan: free
     autoDeploy: false
-    pythonVersion: 3.11.0
-    buildFilter:
-      paths:
-      - render.yaml
-      - requirements.txt
-      - gabbana-budget.py
