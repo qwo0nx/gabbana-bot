@@ -7,3 +7,8 @@ services:
     plan: free
     autoDeploy: false
     pythonVersion: 3.11.0
+    buildFilter:
+      paths:
+      - render.yaml
+      - requirements.txt
+      - gabbana-budget.py
