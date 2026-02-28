@@ -1155,19 +1155,31 @@ def main():
     init_excel()
     print("✅ Данные будут сохраняться в gabbana_data.json и gabbana_budget.xlsx")
     
-    # Создаем приложение
-    app = Application.builder().token(TOKEN).build()
+    # Создаем приложение со старым способом
+    updater = Updater(TOKEN, use_context=True)
+    dp = updater.dispatcher
     
     # Добавляем обработчики
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("cancel", cancel_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.add_handler(CallbackQueryHandler(edit_callback, pattern="^edit_"))
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("cancel", cancel_command))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    dp.add_handler(CallbackQueryHandler(edit_callback, pattern="^edit_"))
     
     print("✅ Бот готов к работе!")
     
     # Запускаем бота
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n⚠️ Бот остановлен")
+    except Exception as e:
+        print(f"\n❌ Ошибка: {e}")
+        import time
+        time.sleep(5)
 
 if __name__ == '__main__':
     try:
