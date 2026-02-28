@@ -4,10 +4,10 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 from datetime import datetime
 import json
 import os
+import sys
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.utils import get_column_letter
-
 # ========== НАСТРОЙКИ ==========
 TOKEN = "8761306495:AAFWICUB62qgO2h-1va3Y50DHZPGvCGakjw"
 DATA_FILE = "gabbana_data.json"
@@ -1155,7 +1155,7 @@ def main():
     init_excel()
     print("✅ Данные будут сохраняться в gabbana_data.json и gabbana_budget.xlsx")
     
-    # Создаем приложение со старым способом
+    # Создаем приложение
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
     
@@ -1166,10 +1166,18 @@ def main():
     dp.add_handler(CallbackQueryHandler(edit_callback, pattern="^edit_"))
     
     print("✅ Бот готов к работе!")
+    print("🚀 Запускаем polling...")
     
-    # Запускаем бота
     updater.start_polling()
     updater.idle()
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print(f"\n❌ Ошибка: {e}")
+        import time
+        time.sleep(10)
 
 if __name__ == '__main__':
     try:
