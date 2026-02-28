@@ -1151,19 +1151,34 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔙 Действие отменено", reply_markup=main_keyboard)
 
 def main():
-    print("🚀 Бот запускается...")
+    print("✅ Бот запускается...")
     init_excel()
     print("✅ Данные будут сохраняться в gabbana_data.json и gabbana_budget.xlsx")
     
+    # Создаем приложение
     app = Application.builder().token(TOKEN).build()
     
+    # Добавляем обработчики
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("cancel", cancel_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(edit_callback, pattern="^edit_"))
     
     print("✅ Бот готов к работе!")
-    app.run_polling()
+    
+    # Запускаем бота
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n⚠️ Бот остановлен")
+    except Exception as e:
+        print(f"\n❌ Ошибка: {e}")
+        # Добавим паузу, чтобы увидеть ошибку
+        import time
+        time.sleep(5)
 
 if __name__ == '__main__':
     try:
